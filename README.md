@@ -34,7 +34,7 @@ Node.js를 위한 훌륭한 라이브러리, 도우미 및 도구가 많이 존�
 
 이 앱을 만들 때 NestJS에서 사용할 것들 (앱 구조)
 
-![app module 구조](./appmodule.png "app module")
+![app module 구조](./images/appmodule.png "app module")
 
 게시글에 관한 모듈과 그 게시글을 만드는 사람에 대한 인증 모듈이 필요하다. 그리고 각 모듈을 구성하는 Controller, Service, Repository 등이 있는데 NestJS는 이것들이 어떠한 용도로 사용되는지 알아본다.
 
@@ -82,8 +82,8 @@ export class AppService {
 }
 ```
 
-![실행 과정](./route.png "nestjs architecture")
-![express와의 비교](./express-router.png "expressjs architecture")
+![실행 과정](./images/route.png "nestjs architecture")
+![express와의 비교](./images/express-router.png "expressjs architecture")
 
 <h3>(5) NestJS 모듈 알아보기</h3>
 
@@ -163,13 +163,13 @@ export class BoardsController {
     constructor(private boardsService: BoardsService) {} // constructor 안에서 의존성 주입이 일어난다. BoardsService가 type으로 들어가있다.
 }
 ```
-![parameter와 property](./params_property.png "parameter와 property")
+![parameter와 property](./images/params_property.png "parameter와 property")
 
 <h3>(8) Providers, Service 알아보기</h3>
 * Providers란? NestJS의 기본 개념. 대부분의 기본 NestJS 클래스는 서비스, 리포지토리, 팩토리, 헬퍼 등 Providers로 취급될 수 있다.
   Provider의 주요 아이디어는 종속성을 주입할 수 있다는 것이다. 객체는 서로 다양한 관계를 만들 수 있으며, 객체의 인스턴스를 연결하는 기능은 대부분 NestJS 런타임 기능에 위임될 수 있다.
 
-  ![종속성 주입](./provider.png "provider")
+  ![종속성 주입](./images/provider.png "provider")
   // Controller는 많은 것들을 필요로 하지만, 그 모든 것들을 전부 Controller 내부에서 구현할 수는 없다. 그렇기 때문에 여러 서비스들을 만든 뒤, 컨트롤러에서 사용할 수 있도록 넣어준다. (종속성 주입)
 
 * Service란? 소프트웨어 개발에 사용되는 공통적인 개념.(NestJS나 JS만의 개념이 아님)
@@ -566,7 +566,7 @@ export class Board extends BaseEntity {
   entity 개체와 함께 작동하며 entity 찾기, 삽입, 수정, 삭제 등을 처리함.
 * [문서](https://typeorm.delightful.studio/classes/_repository_repository_.repository.html)
 * db와 관련된 작업은 서비스에서 하는 게 아닌, repository에서 하면 된다. 이것을 repository pattern이라고도 부른다.
-![repository](./repository.png "repository")
+![repository](./images/repository.png "repository")
 * repository 생성하기
 ```
 // boards.module.ts
@@ -582,6 +582,41 @@ imports: [
   3) controller는 service를 호출, service는 repository를 호출, repository에는 TypeORM 관련 코드를 작성하는 구조를 완성한다.
 
 <h2> 4. 인증 처리 추가(JWT)</h2>
+<h3>(1) 인증모듈 구현하기</h3>
+이제 실전으로 들어가보자.
+처음 프로젝트를 한다고 가정했을 때 작업해야 하는 순서는? 호출하는 구조와 반대로 작업한다.
+1. entity 작성
+2. repository 작성
+3. service 작성
+4. controller 작성
+
+<h3>(2) db 예외처리하기</h3>
+username에 대해 unique값을 부여하고 싶은데 어떤 방법이 있을까?
+
+1. 먼저 findOne을 해보고 없으면 create한다.이 방법은 db를 두번 처리해야 한다. (x)
+2. unique key를 설정한 뒤, db에서 나오는 에러를 받아 처리한다. (o)
+```
+// users.entity.ts
+@Unique(['username'])
+export class User extends BaseEntity {
+  ...
+}
+```
+typeORM은 이 상황에서 기본적으로 ```500: Internal Server Error```를 반환한다. 이를 핸들링해보자.
+```
+// users.repository.ts
+try {
+    await this.save(user);
+} catch (error) {
+    if (error.code === '23505') {   // console.error를 통해 typeORM error code를 확인
+        throw new ConflictException('Existing username');
+    }
+    else {
+        console.error(error);
+        throw new InternalServerErrorException();
+    }
+}
+```
 <h2> 5. 권한 처리 (Passport)</h2>
 <h2> 6. 로그 남기기</h2>
 <h2> 7. 배포 전 설정하기</h2>
