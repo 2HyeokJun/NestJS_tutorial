@@ -617,6 +617,127 @@ try {
     }
 }
 ```
+<h3>(3) JWT 모듈 등록하기</h3>
+
+설치:  ```npm i @nestjs/jwt```
+모듈에 등록하기: 
+```
+// auth.module.ts
+  imports: [
+    JwtModule.register({
+      secret: 'tutorialSecret',   // 토큰을 생성할 때 이용하는 텍스트
+      signOptions: {
+        expiresIn: 3600,    // 토큰의 유효기간 설정
+      }
+    }),
+
+// users.service.ts
+export class AuthService {
+    constructor(
+        @InjectRepository(UserRepository) 
+        private userRepository: UserRepository,
+        private jwtService: JwtService,
+    ) {}
+```
+토큰을 생성할 때 payload는 유저의 정보를 담을 수 있다. (중요한 정보를 담으면 안됨)
+```
+const payload = {username}
+const accessToken = await jwtService.sign(payload)
+return {accessToken};   // return이 {string}이므로 return type도 Promise<{accessToken: string}>으로 변경
+```
+
 <h2> 5. 권한 처리 (Passport)</h2>
+<h3>(1) 설치 및 사용</h3>
+* 설치: ```npm i @nestjs/passport passport passport-jwt @types/passport-jwt```
+```
+@Injectable()
+export class JwtStrategy extends PassportStrategy(Strategy) {
+    constructor (
+        private userRepository: UserRepository  // UserRepository에서 정보를 가져와야 하기 때문에
+    ) {
+        super({ // 부모 component의 요소를 사용하기 위해 사용
+          secretOrKey: 'tutorial_secret',   // auth.module.ts에 있는 secretKey와 같은 키. 토큰을 검증하기 위해 사용
+          jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken()    // token을 어디에서 가져올지 결정
+        })
+    }
+
+    // 위에서 토큰이 유효한지 체크가 되면 validate 메소드에서 payload에 있는 유저 이름이 db에 있는지 확인 후 있다면 유저 객체를 return해준다. 하지만 이를 바로 사용할 수는 없다.
+    // return값은 @UseGuards(AuthGuard())를 이용한 모든 요청의 Request Object에 들어간다.
+    async validate(payload) {
+      const {username} = payload;
+      const user:User = await this.userRepository.findOne({username});
+      if (!user) {
+        throw new UnauthorizedException();
+      }
+
+      return user;
+    }
+}
+```
+* 방금 만든 JwtStrategy를 사용하기 위해서는?
+  AuthModule Providers 항목에 넣어주고 다른 곳에서도 JwtStrategy와 PassportModule도 사용해주어야 하기 때문에 export 항목에도 넣어주어야 한다.
+  ```
+  // auth.module.ts
+  providers: [AuthController, JwtStrategy],
+  exports: [AuthService, PassportModule]
+  ```
+* 요청 안에 유저 정보(Users 객체)가 들어가게 하는 방법
+  **Useguards**: Useguards안에 AuthGuard()를 이용해서 요청 안에 유저 정보를 넣어줄 수 있다.
+  ```
+  @Post('/authtest')
+  @UseGuards(AuthGuard()) // token에 대한 유효성 검증도 같이 함
+  authTest(@Req() req) {
+    console.log('req:', req);   // 올바른 token이면 user객체를 req.user로 넣어줌
+  }
+  ```
+
+<h3>(2) middleware</h3>
+
+* NestJs에는 Pipes, Filters, Guards, Interceptors 등의 미들웨어가 있는데 각각 다른 용도로 사용되고 있다.
+  1) Pipes: 요청 유효성 검사 및 페이로드 변환을 위해 사용. 데이터를 예상한 대로 직렬화한다.
+  2) Filters: 오류 처리 미들웨어. 특정 오류 처리기를 사용할 경로와 각 경로 주변의 복잡성을 관리하는 방법을 알 수 있음.
+  3) Guards: 인증 미들웨어. 지정된 경로로 통과할 수 있는 사람과 없는 사람을 서버에 알려줌.
+  4) Interceptors: 응답 매핑 및 캐시 관리와 함께 요청 로깅과 같은 전후 미들웨어. 각 요청 전후에 이를 실행하는 기능이 매우 강력하고 유용함.
+
+* 각각의 미들웨어가 호출되는 순서
+  middleware -> guard -> interceptor(before) -> pipe -> controller -> service -> controller -> interceptor(after) -> filter(if applicable) -> client
+
+<h3>(3) 커스텀 데코레이터 생성하기</h3>
+
+* 나는 req.user로 가져오기 싫고 바로 user라는 parameter로 받아오고 싶은데... 이 때 커스텀 데코레이터를 사용.
+  ```
+  // auth/get-user.decorator.ts
+  export const getUser = createParamDecorator((data, context: ExecutionContext)): User => {
+    let req = context.switchToHttp().getRequest();  // 여기서 생성된 req가 @Req() req 전체이다. 그래서 req.user를 return해주어야 함
+    return req.user;
+  }
+
+  // auth.controller.ts
+  @Post('/authtest')
+  @UseGuards(AuthGuard()) // token에 대한 유효성 검증도 같이 함
+  authTest(@GetUser() user: User) {
+    console.log('user:', user);  
+  }
+  ```
+<h3>(4) 게시물 접근 권한 부여 및 제한하기</h3>
+
+* 인증에 관한 모듈을 board 모듈에서 쓸 수 있어야 하기 때문에 먼저 board module에서 인증 모듈을 import해와야 한다. (이렇게 하면 AuthModule에서 export하는 모든 모듈을 board에서 사용할 수 있음)
+  ```
+  // boards.module.ts
+  imports: [
+    TypeOrmModule.forFeature([
+      BoardRepository,
+    ]),
+    AuthModule,
+  ],
+
+  // boards.controller.ts
+  @Controller('boards')
+  @UseGuards(AuthGuard())
+  export class BoardsController {
+    ...
+  }
+  ```
+
 <h2> 6. 로그 남기기</h2>
 <h2> 7. 배포 전 설정하기</h2>
