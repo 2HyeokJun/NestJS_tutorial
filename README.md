@@ -740,4 +740,65 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   ```
 
 <h2> 6. 로그 남기기</h2>
+
+* 로그의 종류
+  1. log: 중요한 정보의 범용 로깅
+  2. warning: 치명적이거나 파괴적이지 않은, 처리되지 않은 문제
+  3. error: 치명적이거나 파괴적인, 처리되지 않은 문제
+  4. debug: 오류 발생 시 로직을 디버그하는데 도움이 되는 유용한 정보 (개발용)
+  5. verbose: 응용 프로그램의 동작에 대한 통찰력을 제공하는 정보 (운영용)
+
+* 로그 레벨
+  원하는 대로 환경에 따라서 로그의 레벨을 정의해서 넣어줄 수 있다. (dev / staging / production)
+
+* 로그 모듈
+  Logger라는 built-in된 모듈이 존재하기 때문에 사용하면 됨
+  ```
+  private logger = new Logger('BoardController');   // 어느 곳에서 출력됐는지 알고 싶다면?
+  this.logger.log('test log');
+  ```
+
 <h2> 7. 배포 전 설정하기</h2>
+
+* 설정 파일은?
+  runtime 도중에 바뀌는 것이 아닌, 어플리케이션이 시작할 때 로드가 되어 그 값들을 정의해 준다. 그리고 설정 파일은 여러가지 파일 형식을 사용할 수 있다.
+  예로는 XML, JSON, yaml, environment variables 같이 많은 형식을 이용할 수 있다.
+
+* Codebase vs 환경 변수
+  Codebase -> 일반적으로 port 같이 노출되어도 상관 없는 정보들
+  환경 변수 -> 비밀번호나 api key 등 노출되면 안되는 정보들 
+
+* 설정을 위해 필요한 모듈
+  윈도우에서는 win-node-env 설치 필요(```npm i -g win-node-env```)
+  윈도우와 맥 모두 config 모듈 설치 필요(```npm i config```)
+
+* 세팅하기
+  ```
+  // config/default.yml
+  server:
+    port: 3000
+  db: 
+    type: 'mysql'
+    port: 3306
+    database: 'test'
+  jwt:
+    expiresIn: 3600
+  // config/development.yml
+  db:
+    host: 'localhost'
+    username: 'test'
+    password: 'test'
+    synchronize: true
+  jwt:
+    secret: 'secret'
+  // config/production.yml
+  db:
+    synchronize: false
+  
+  // 외부에서 값 호출하기
+  import * as config as 'config';
+  console.log(config.get('server'))  // {port: 3000}
+
+  
+  ```
+ 
