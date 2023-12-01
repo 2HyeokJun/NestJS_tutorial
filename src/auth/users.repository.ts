@@ -1,11 +1,15 @@
 import { ConflictException, Injectable, InternalServerErrorException } from "@nestjs/common";
-import { Repository } from "typeorm";
+import { DataSource, Repository } from "typeorm";
 import { authCredentialDTO } from "./dto/auth-credential.dto";
 import { User } from "./users.entity";
 
 
 @Injectable()
 export class UserRepository extends Repository<User> {
+    constructor (private dataSource: DataSource) {
+        super(User, dataSource.createEntityManager());
+    }
+
     async getUserById(username: string): Promise<User> {
         return await this.findOne({where: {username}});
     }
@@ -16,7 +20,7 @@ export class UserRepository extends Repository<User> {
         try {
             await this.save(user);
         } catch (error) {
-            if (error.code === '23505') {
+            if (error.errno === 1062) {
                 throw new ConflictException('Existing username');
             }
             else {

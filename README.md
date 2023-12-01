@@ -647,7 +647,9 @@ return {accessToken};   // return이 {string}이므로 return type도 Promise<{a
 ```
 
 <h2> 5. 권한 처리 (Passport)</h2>
+
 <h3>(1) 설치 및 사용</h3>
+
 * 설치: ```npm i @nestjs/passport passport passport-jwt @types/passport-jwt```
 ```
 @Injectable()
@@ -773,6 +775,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   윈도우와 맥 모두 config 모듈 설치 필요(```npm i config```)
 
 * 세팅하기
+
   ```
   // config/default.yml
   server:
@@ -798,7 +801,5 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   // 외부에서 값 호출하기
   import * as config as 'config';
   console.log(config.get('server'))  // {port: 3000}
-
-  
   ```
  

@@ -11,11 +11,11 @@ export class AuthService {
         @InjectRepository(UserRepository) 
         private userRepository: UserRepository,
         private jwtService: JwtService,
-    ) {}
+    ) {
+    }
 
     async signUp(authCredentialDTO: authCredentialDTO): Promise<void> {
         await this.hashPassword(authCredentialDTO);
-        console.log('dto:', authCredentialDTO);
         return await this.userRepository.createUser(authCredentialDTO);
     }
 
@@ -24,7 +24,7 @@ export class AuthService {
         let selectedUser = await this.userRepository.getUserById(username);
         if (selectedUser && await bcrypt.compare(password, selectedUser.password)) {
             let payload = {username};
-            let accessToken = await this.jwtService.sign(payload);
+            let accessToken = this.jwtService.sign(payload);
             return {accessToken};
         } else {
             throw new UnauthorizedException('login failed');
@@ -33,7 +33,8 @@ export class AuthService {
 
     async hashPassword(authCredentialDTO: authCredentialDTO): Promise<void> {
         let salt = await bcrypt.genSalt();
-        await bcrypt.hash(authCredentialDTO.password, salt);
+        let hashedPassword = await bcrypt.hash(authCredentialDTO.password, salt);
+        authCredentialDTO.password = hashedPassword;
     }
 
 }

@@ -7,7 +7,7 @@ import { Board } from './boards.entity';
 import { AuthGuard } from '@nestjs/passport';
 
 @Controller('boards')
-@UseGuards(AuthGuard())
+// @UseGuards(AuthGuard())
 export class BoardsController {
     constructor(private boardsService: BoardsService) {}
 
